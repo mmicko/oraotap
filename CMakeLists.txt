@@ -3,7 +3,7 @@ project(oraotap CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(include/ 3rdparty/wave/src)
+include_directories(3rdparty/cxxopts/include 3rdparty/wave/src)
 
 aux_source_directory(src/ SOURCE_FILES)
 
