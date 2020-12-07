@@ -1,10 +1,11 @@
 #include <cstring>
 #include "cxxopts.hpp"
-#include "AudioFile.h"
+#include "wave/file.h"
 
 int main(int argc, const char* argv[])
 {
-	AudioFile<double> audioFile;
+	wave::File read_file;
+	std::vector<float> content;
 	FILE *fp;
 	try
 	{
@@ -34,10 +35,19 @@ int main(int argc, const char* argv[])
 
 		if (result.count("input"))
 		{
-			audioFile.load(result["input"].as<std::string>());
+			wave::Error err = read_file.Open(result["input"].as<std::string>(), wave::kIn);
+			if (err) {
+				std::cerr << "Something went wrong while opening input file." << std::endl;
+				return 1;
+			}
+			err = read_file.Read(&content);
+			if (err) {
+				std::cout << "Something went wrong while reading input file." << std::endl;
+				return 1;
+			}
 		} else {
 			std::cerr << "Input file is mandatory." << std::endl;
-			exit(1);
+			return 1;
 		}
 
 		if (result.count("output"))
@@ -45,21 +55,18 @@ int main(int argc, const char* argv[])
 			fp = fopen(result["output"].as<std::string>().c_str(), "wb");
 		} else {
 			std::cerr << "Output file is mandatory." << std::endl;	
-			exit(1);
+			return 1;
 		}
 
 	}
 	catch (const cxxopts::OptionException& e)
 	{
 		std::cerr << "error parsing options: " << e.what() << std::endl;
-		exit(1);
+		return 1;
 	}
 
 	std::cout << "Converting Orao WAV tape to TAP format." << std::endl;
-	audioFile.printSummary();
-	int numSamples = audioFile.getNumSamplesPerChannel();
-	int numChannels = audioFile.getNumChannels();
-	 
+	size_t numSamples = content.size();
 	int cnt = 0;
 	bool firstPart = false;
 	uint8_t bit = 0;
@@ -68,9 +75,9 @@ int main(int argc, const char* argv[])
 	uint8_t data = 0x4f;
 	// Make first byte same as in tool from Josip
 	fwrite(&data, 1, 1, fp);
-	for (long i = 0; i < numSamples; i++)
+	for (size_t i = 0; i < numSamples; i++)
 	{
-		double currentSample = audioFile.samples[0][i];
+		double currentSample = content[i];
 		uint8_t val = (currentSample > 0) ? 1 : 0;
 		if (prevVal == val) 
 			cnt++;
