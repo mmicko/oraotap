@@ -7,11 +7,19 @@
 #define ORAO_WAVE_ZERO  9
 #define WAVE_HIGH       -24576
 #define WAVE_LOW        24576
+#define ORAO_HEADER_SIZE 360
 
 void orao_output_wave(std::vector<float> *content, float value, int repeat)
 {
 	for (int i=0;i<repeat;i++)
 		content->push_back(value);
+}
+
+uint8_t reverse(uint8_t b) {
+   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
+   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
+   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
+   return b;
 }
 
 int main(int argc, const char* argv[])
@@ -20,6 +28,7 @@ int main(int argc, const char* argv[])
 	std::string output_file;
 	bool wav_to_tap = false;
 	bool tap_to_wav = false;
+	bool old_to_new = false;
 	try
 	{
 		std::string name = argv[0];
@@ -35,6 +44,7 @@ int main(int argc, const char* argv[])
 			("o,output", "Output file", cxxopts::value<std::string>())
 			("tap", "Convert WAV to TAP", cxxopts::value<bool>())
 			("wav", "Convert TAP to WAV", cxxopts::value<bool>())
+			("old2new", "Convert old TAP to new TAP", cxxopts::value<bool>())
 			("help", "Print help")
 		;
 
@@ -64,18 +74,19 @@ int main(int argc, const char* argv[])
 			return 1;
 		}
 
-		if (result.count("wav") && result.count("tap"))
+		if (result.count("wav") && result.count("tap") && result.count("old2new"))
 		{
 			std::cerr << "Only one target format is possible." << std::endl;	
 			return 1;
 		}
-		if (!result.count("wav") && !result.count("tap"))
+		if (!result.count("wav") && !result.count("tap") && !result.count("old2new"))
 		{
 			std::cerr << "Target format is mandatory." << std::endl;	
 			return 1;
 		}
 		if (result.count("wav")) tap_to_wav = true;
 		if (result.count("tap")) wav_to_tap = true;
+		if (result.count("old2new")) old_to_new = true;
 
 	}
 	catch (const cxxopts::OptionException& e)
@@ -173,13 +184,37 @@ int main(int argc, const char* argv[])
 					orao_output_wave(&content, WAVE_LOW,  ORAO_WAVE_ONE);
 					orao_output_wave(&content, WAVE_HIGH, ORAO_WAVE_ONE);
 				}
-			}		}
+			}
+		}
 		err = write_file.Write(content);
 		if (err) {
 			std::cout << "Something went wrong while writing output file." << std::endl;
 			return 1;
 		}
 		return 0;
+	}
+	if (old_to_new) {
+		std::ifstream fs(input_file, std::ios_base::binary);
+		if (!fs) {
+			std::cerr << "Failed to open input file" << std::endl;
+			return 1;
+		}
+		std::vector<uint8_t> bytes; 
+		std::cout << "Converting Orao old TAP tape to new TAP format." << std::endl;
+		fs.seekg(0, fs.end);
+		size_t length = size_t(fs.tellg());
+		fs.seekg(0, fs.beg);
+		bytes.resize(length);
+		fs.read(reinterpret_cast<char *>(&(bytes[0])), length);
+		FILE *fp = fopen(output_file.c_str(), "wb");
+		uint8_t data = 0x4f;
+		// Make first byte same as in tool from Josip
+		fwrite(&data, 1, 1, fp);
+		for (int i = ORAO_HEADER_SIZE; i < bytes.size(); i++) {
+			data = reverse(bytes[i]);
+			fwrite(&data, 1, 1, fp);
+		}
+
 	}
 	return 0;
 }
