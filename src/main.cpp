@@ -170,8 +170,8 @@ int main(int argc, const char* argv[])
 		std::vector<uint8_t> bytes; 
 		std::cout << "Converting Orao TAP tape to WAV format." << std::endl;
 		fs.seekg(0, fs.end);
-		size_t length = size_t(fs.tellg());
-		fs.seekg(0, fs.beg);
+		size_t length = size_t(fs.tellg())-1;
+		fs.seekg(1, fs.beg);
 		bytes.resize(length);
 		fs.read(reinterpret_cast<char *>(&(bytes[0])), length);
 		for(uint8_t byte : bytes) {
