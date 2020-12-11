@@ -1,7 +1,20 @@
 cmake_minimum_required(VERSION 3.5)
 project(oraotap CXX)
+option(STATIC_BUILD "Create static build" OFF)
 
 set(CMAKE_CXX_STANDARD 14)
+
+if (STATIC_BUILD)
+    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+      set(CMAKE_EXE_LINKER_FLAGS "-Bstatic")
+    elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+        if (not MSVC)
+          set(CMAKE_EXE_LINKER_FLAGS "-static")
+        endif()
+    else()
+        set(CMAKE_EXE_LINKER_FLAGS "-static")
+    endif()
+endif()
 
 include_directories(3rdparty/cxxopts/include 3rdparty/wave/src)
 
